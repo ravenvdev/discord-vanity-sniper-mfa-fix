@@ -33,8 +33,8 @@ A standalone Node.js CLI that monitors Discord vanity URLs in real-time and clai
 ## Quick Start
 
 ```bash
-git clone https://github.com/ravenv/discord-vanity-sniper.git
-cd discord-vanity-sniper
+git clone https://github.com/ravenvdev/discord-vanity-sniper-mfa-fix.git
+cd discord-vanity-sniper-mfa-fix
 node sniper.js
 ```
 
@@ -42,8 +42,7 @@ First run: use the menu to enter your token, TOTP secret, target server and webh
 
 For 7/24 headless operation:
 
-```bash
-# Windows — double-click watchdog.bat, or:
+```bat
 watchdog.bat
 ```
 
@@ -53,7 +52,7 @@ watchdog.bat
 
 ### Discord User Token
 
-1. Open Discord in a browser (chrome/firefox)
+1. Open Discord in a browser (Chrome / Firefox)
 2. Press **F12** → open the **Network** tab
 3. Send any message or switch channels
 4. Find any request to `discord.com/api/...`
@@ -66,13 +65,13 @@ watchdog.bat
 You need this when setting up or resetting 2FA on Discord.
 
 1. Go to **User Settings → My Account → Two-Factor Authentication**
-2. Click **Enable Two-Factor Auth** (or disable and re-enable to get the key)
+2. Click **Enable Two-Factor Auth** (or disable and re-enable to get the key again)
 3. Discord shows a QR code **and** a text key below it, e.g.:
    ```
    65OP EMVR AWXM DYMR O2LZ 6O5C RO73 L3C4
    ```
 4. Copy that key, **remove all spaces**, lowercase it → `65opemvrawxmdymro2lz6o5cro73l3c4`
-5. Paste that into the sniper when asked for TOTP secret
+5. Paste it into the sniper when asked for TOTP secret
 
 > If you already have 2FA enabled and didn't save the key when you set it up, you must disable 2FA and re-enable it to get a new key.
 
@@ -81,37 +80,37 @@ You need this when setting up or resetting 2FA on Discord.
 1. Enable **Developer Mode**: Discord Settings → Advanced → Developer Mode ✓
 2. Right-click your server icon → **Copy Server ID**
 
-### Webhook URL (optional — for @everyone ping on claim)
+### Webhook URL (optional)
 
 1. Server Settings → **Integrations → Webhooks → New Webhook**
 2. Set the channel → **Copy Webhook URL**
-3. Paste it into the sniper menu option 5
+3. Paste it into the sniper via menu option 5
 
 ---
 
-## Menu Reference
+## Menu
 
 ```
 ════════════════════════════════
    Discord Vanity Sniper
 ════════════════════════════════
- 1 › Token gir / değiştir
- 2 › Tüm vanity URL'leri listele
- 3 › Tek URL snipe
- 4 › AUTO-SCAN (tüm urleri izle)
- 5 › Webhook ayarla
- 6 › TOTP secret temizle
- 7 › Çıkış
+ 1 › Set / change token
+ 2 › List all vanity URLs
+ 3 › Snipe single URL
+ 4 › AUTO-SCAN (watch all URLs)
+ 5 › Set webhook
+ 6 › Clear TOTP secret
+ 7 › Exit
 ```
 
 | Option | What it does |
 |---|---|
 | 1 | Enter or update your Discord user token (saved to `.state.json`) |
 | 2 | Lists every guild on your account with its current vanity URL and admin status |
-| 3 | Snipe a single specific vanity URL — enter the URL and pick a destination server |
+| 3 | Snipe a single specific vanity URL — enter the code and pick a destination server |
 | 4 | AUTO-SCAN: connects Gateway, monitors all vanities simultaneously, claims first drop |
-| 5 | Set a Discord webhook URL for @everyone notification on successful claim |
-| 6 | Clear saved TOTP secret (if you need to re-enter it) |
+| 5 | Set a Discord webhook URL for `@everyone` notification on successful claim |
+| 6 | Clear saved TOTP secret (useful if you need to re-enter it after 2FA reset) |
 | 7 | Exit |
 
 ---
@@ -130,11 +129,11 @@ node sniper.js auto  ← restarts automatically
 
 - Restart events are logged to `logs\restarts.log` with timestamp and exit code
 - `auto` mode skips the menu entirely — reads credentials from `.state.json` and immediately starts AUTO-SCAN
-- To stop: close the watchdog window, or press `Ctrl+C`
+- To stop: close the window or press `Ctrl+C`
 
 ---
 
-## How It Works — Technical Detail
+## How It Works
 
 ### Complete Claim Flow
 
@@ -143,27 +142,24 @@ node sniper.js auto  ← restarts automatically
    ├── Load .state.json (token, totpSecret, serverId, webhookUrl)
    ├── Verify token → GET /users/@me
    ├── Fetch all guilds → GET /users/@me/guilds
-   ├── For each guild: GET /guilds/{id}/vanity-url  (concurrent, rate-limit aware)
+   ├── For each guild: GET /guilds/{id}/vanity-url  (concurrent)
    └── Build watchlist: { code → guildId } for every active vanity
 
-2. MFA PRE-FETCH (before watching — ready to claim instantly)
-   ├── POST one of:
-   │     /users/@me/mfa/totp/disable   { code: totp() }
-   │     PATCH /users/@me              { ... }
-   │     POST /users/@me/mfa/sms/enable { ... }
-   │   → response contains mfa.ticket
+2. MFA PRE-FETCH (ready to claim instantly when drop happens)
+   ├── POST /users/@me/mfa/totp/disable  { code: totp() }
+   │     → response contains mfa.ticket
    ├── POST /mfa/finish  { ticket, mfa_type: "totp", data: totp() }
-   │   → returns { token: "<mfa_token>" }
+   │     → returns { token: "<mfa_token>" }
    └── mfa_token saved, refreshed every 2 minutes automatically
 
 3. REAL-TIME MONITORING (Gateway WebSocket)
    ├── Connect wss://gateway.discord.gg/?v=10&encoding=json
    ├── Receive opcode 10 HELLO → start heartbeat at given interval
-   ├── Send opcode 2 IDENTIFY  { token, intents: 0 (no extra intents needed) }
+   ├── Send opcode 2 IDENTIFY  { token, intents: 0 }
    ├── Receive opcode 0 READY  → session established
    └── Listen for:
          GUILD_UPDATE   → check if vanity_url_code changed or is now null
-         GUILD_DELETE   → vanity freed when server deleted
+         GUILD_DELETE   → vanity freed when server is deleted
 
 4. DROP DETECTED
    ├── code = dropped vanity URL
@@ -175,38 +171,35 @@ node sniper.js auto  ← restarts automatically
 5. RESPONSE HANDLING
    ├── 200 → CLAIMED ✓
    │     ├── Send webhook @everyone notification
-   │     ├── Release all Gateway connections
-   │     └── Exit (watchdog will restart; next run sees empty watchlist = idle)
-   ├── 429 → rate limited → retry after Retry-After header value
+   │     ├── Close all Gateway connections
+   │     └── Exit (watchdog restarts; next run idles — URL is now yours)
+   ├── 429 → rate limited → retry after Retry-After ms
    ├── 60003 → MFA required → re-fetch MFA token → retry
    └── other 4xx → log and abort
 ```
 
 ### Why HTTP/2 Instead of fetch()
 
-Node.js's built-in `fetch()` (via undici) uses a TLS fingerprint that Cloudflare recognizes as an automated client and returns **error 1015** (rate limit / block) on sensitive Discord endpoints like `/guilds/*/vanity-url`.
+Node.js's built-in `fetch()` (via undici) uses a TLS fingerprint that Cloudflare recognizes as an automated client and returns **error 1015** on sensitive Discord endpoints like `/guilds/*/vanity-url`.
 
-The sniper uses `node:http2` directly with raw header ordering that matches a real browser's HTTP/2 connection — Cloudflare passes it through.
+The sniper uses `node:http2` directly with raw header ordering that matches a real browser session — Cloudflare passes it through.
 
 ### Why Gateway Instead of Polling
 
-Polling `GET /invites/{code}` every N seconds:
-- Introduces N seconds of delay between drop and detection
-- Consumes Discord API rate limit budget on every guild
-- Scales poorly with many guilds
+Polling `GET /invites/{code}` every N seconds introduces N seconds of delay, burns rate limit budget, and scales poorly with many guilds.
 
-Gateway WebSocket receives `GUILD_UPDATE` events **instantly** when a guild's vanity changes — same millisecond the server owner changes or removes it. No polling overhead.
+The Gateway receives `GUILD_UPDATE` events **instantly** — same millisecond the server owner removes the vanity URL.
 
-### TOTP Rotation Safety
+### TOTP Rotation
 
 TOTP codes rotate every 30 seconds. The sniper:
-1. Generates a fresh code at every MFA refresh call using `Date.now()` — never caches a code
-2. On each attempt also tries the **previous** window's code as fallback, so a code that just rotated never causes a failed claim
-3. MFA token (returned by Discord after TOTP verification) is valid for ~5 minutes — the 2-minute refresh interval means there is always a fresh token with ≥3 minutes remaining when a drop is detected
+1. Generates a fresh code on every call using `Date.now()` — never caches a code
+2. Also tries the **previous** window's code as fallback, so a code that just rotated never causes a failed claim
+3. MFA token (returned by Discord) is valid ~5 minutes — the 2-minute refresh means there is always ≥3 minutes remaining when a drop fires
 
-### MFA Ticket Sources (Anti-1015)
+### MFA Ticket Sources
 
-Getting an MFA ticket directly via the vanity URL endpoint triggers Cloudflare 1015. The sniper obtains the ticket through alternative endpoints that are not rate-limited the same way:
+Obtaining an MFA ticket directly on the vanity URL endpoint triggers Cloudflare 1015. The sniper uses alternative endpoints instead:
 
 ```
 Priority 1: POST /users/@me/mfa/totp/disable
@@ -214,17 +207,17 @@ Priority 2: PATCH /users/@me
 Priority 3: POST /users/@me/mfa/sms/enable
 ```
 
-Each returns a `mfa.ticket` in its 60003 error response which is then passed to `/mfa/finish`.
+Each returns `mfa.ticket` in its 60003 error response which is then passed to `/mfa/finish`.
 
 ---
 
 ## Project Structure
 
 ```
-discord-vanity-sniper/
+discord-vanity-sniper-mfa-fix/
 ├── sniper.js              # entire CLI — Gateway, HTTP/2, TOTP, MFA, menu
 ├── watchdog.bat           # 7/24 infinite restart loop
-├── start.bat              # simple interactive launcher (double-click)
+├── start.bat              # simple interactive launcher
 ├── package.json           # { "type": "module" }
 ├── .gitignore             # excludes .state.json and logs/
 ├── .state.json.example    # credential template — copy to .state.json
@@ -237,20 +230,20 @@ discord-vanity-sniper/
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Token geçersiz` | Expired or wrong token | Re-copy Authorization header from browser DevTools |
-| `60003 MFA required` | MFA token expired mid-claim | Auto-refresh will recover on next attempt; if persistent, clear TOTP (option 6) and re-enter |
+| `Token invalid` | Expired or wrong token | Re-copy the `Authorization` header from browser DevTools |
+| `60003 MFA required` | MFA token expired mid-claim | Auto-refresh recovers on next attempt; if persistent, clear TOTP (option 6) and re-enter |
 | `1015 Cloudflare` | IP rate limited | Wait ~1 minute; sniper retries automatically |
-| `TOTP hatalı` | Wrong base32 secret | Option 6 → clear TOTP → re-enter. Remove ALL spaces from the key. |
-| `Gateway bağlantı hatası` | Network drop | Watchdog will restart automatically |
-| `Vanity URL yok` | Server has no vanity (needs Level 3 boost) | Expected — shows as `-` in list |
+| `TOTP invalid` | Wrong base32 secret | Option 6 → clear → re-enter. Remove ALL spaces from the key. |
+| `Gateway connection error` | Network drop | Watchdog restarts automatically |
+| `No vanity URL` | Server not Level 3 boosted | Expected — shows as `-` in the list |
 
 ---
 
 ## Security Notes
 
-- `.state.json` is in `.gitignore` — it will never be committed
+- `.state.json` is in `.gitignore` — it will never be committed accidentally
 - Never share your Discord user token — it grants full account access
-- Running the watchdog on a VPS/server is safer than on a personal machine (always-on without leaving your PC running)
+- Running the watchdog on a VPS is safer than a personal machine (always-on, no open Discord sessions)
 
 ---
 
