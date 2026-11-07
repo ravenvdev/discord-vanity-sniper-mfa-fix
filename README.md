@@ -1,36 +1,29 @@
 # Discord Vanity URL Sniper
 
-A standalone Node.js CLI that monitors Discord vanity URLs in real-time and claims them the instant they drop. Zero external dependencies — pure Node.js stdlib only.
+Discord vanity URL'lerini anlık takip eden ve düşer düşmez otomatik alan Node.js CLI aracı. Hiçbir harici kütüphane gerekmez — saf Node.js.
 
 ---
 
-## Features
+## Ne Yapar?
 
-| Feature | Detail |
-|---|---|
-| Real-time detection | Discord Gateway WebSocket — event fires the moment a URL drops, no polling delay |
-| AUTO-SCAN mode | Monitors every vanity URL across all your guilds at once; claims the first drop, then stops |
-| Single-target mode | Watch one specific URL and snipe it to any server you manage |
-| TOTP 2FA | Full RFC 6238 implementation (SHA-1, 30 s window, 6 digits) — works with Google Authenticator, Authy, etc. |
-| MFA auto-refresh | Refreshes the MFA token every 2 minutes in the background — token never expires mid-operation |
-| Webhook notification | Sends `@everyone` ping on successful claim with claimed URL and timestamp |
-| HTTP/2 transport | Native `node:http2` — matches Discord's expected TLS fingerprint, avoids Cloudflare 1015 |
-| 7/24 watchdog | `watchdog.bat` — infinite restart loop, survives crashes, network drops, rate limits |
-| State persistence | Token, TOTP secret, server ID and webhook saved in `.state.json` — enter once, never again |
-| Zero dependencies | No `npm install` needed — runs straight from clone |
+Discord sunucularının özel URL'leri (örn: `discord.gg/valorant`) vardır. Bu URL'ler bazen serbest bırakılır. Bu araç:
+
+- Hesabınıza bağlı tüm sunucuların URL'lerini **anlık izler**
+- Bir URL düştüğü anda **otomatik alır**
+- **7/24 çalışır** — çökerse kendiliğinden yeniden başlar
+- **Webhook ile bildirim** gönderir — URL alındığında @everyone ping atar
 
 ---
 
-## Requirements
+## Gereksinimler
 
-- **Node.js v22+** — uses native `WebSocket` API (Node 21+) and `node:http2`
-- A Discord **user token** (not a bot token)
-- **2FA enabled** on the Discord account with a TOTP authenticator app
-- **Manage Server** permission on the target server
+- **Node.js v22+** → [nodejs.org](https://nodejs.org) adresinden indir
+- Discord hesabında **2FA (Google Authenticator)** aktif olmalı
+- Almak istediğin sunucuda **Sunucuyu Yönet** yetkisi olmalı
 
 ---
 
-## Quick Start
+## Kurulum
 
 ```bash
 git clone https://github.com/ravenvdev/discord-vanity-sniper-mfa-fix.git
@@ -38,221 +31,159 @@ cd discord-vanity-sniper-mfa-fix
 node sniper.js
 ```
 
-First run: use the menu to enter your token, TOTP secret, target server and webhook URL. Everything is saved to `.state.json` automatically.
-
-For 7/24 headless operation:
-
-```bat
-watchdog.bat
-```
+İlk açılışta menüden token, TOTP kodu ve sunucu ID'sini gir. `.state.json` dosyasına kaydedilir — bir daha sormaz.
 
 ---
 
-## How to Get Your Credentials
+## Bilgileri Nasıl Alırsın?
 
 ### Discord User Token
 
-1. Open Discord in a browser (Chrome / Firefox)
-2. Press **F12** → open the **Network** tab
-3. Send any message or switch channels
-4. Find any request to `discord.com/api/...`
-5. In the request headers, copy the value of **`Authorization`**
+1. Discord'u **tarayıcıda** aç (uygulama değil)
+2. **F12** → **Network** sekmesi
+3. Herhangi bir mesaj gönder veya kanal değiştir
+4. Çıkan isteklerden birine tıkla → **Request Headers** kısmında `Authorization` satırını kopyala
 
-> This token gives full access to your account. Keep it secret. Never share it. Never commit it.
+> Token'ını kimseyle paylaşma. Hesabına tam erişim sağlar.
 
-### TOTP Base32 Secret
+### TOTP Secret (Base32 Anahtar)
 
-You need this when setting up or resetting 2FA on Discord.
+2FA kurulurken Discord sana hem QR kodu hem de **yazılı bir anahtar** gösterir:
 
-1. Go to **User Settings → My Account → Two-Factor Authentication**
-2. Click **Enable Two-Factor Auth** (or disable and re-enable to get the key again)
-3. Discord shows a QR code **and** a text key below it, e.g.:
-   ```
-   65OP EMVR AWXM DYMR O2LZ 6O5C RO73 L3C4
-   ```
-4. Copy that key, **remove all spaces**, lowercase it → `65opemvrawxmdymro2lz6o5cro73l3c4`
-5. Paste it into the sniper when asked for TOTP secret
+```
+65OP EMVR AWXM DYMR O2LZ 6O5C RO73 L3C4
+```
 
-> If you already have 2FA enabled and didn't save the key when you set it up, you must disable 2FA and re-enable it to get a new key.
+Bu anahtarı **boşluksuz ve küçük harfle** gir:
+```
+65opemvrawxmdymro2lz6o5cro73l3c4
+```
 
-### Target Server ID
+> Anahtarı kaydetmediysen 2FA'yı kapatıp tekrar açman gerekir.
 
-1. Enable **Developer Mode**: Discord Settings → Advanced → Developer Mode ✓
-2. Right-click your server icon → **Copy Server ID**
+### Sunucu ID
 
-### Webhook URL (optional)
+1. Discord → Ayarlar → Gelişmiş → **Geliştirici Modu** aç
+2. Sunucu ikonuna sağ tıkla → **Sunucu ID'sini Kopyala**
 
-1. Server Settings → **Integrations → Webhooks → New Webhook**
-2. Set the channel → **Copy Webhook URL**
-3. Paste it into the sniper via menu option 5
+### Webhook URL (İsteğe Bağlı)
+
+1. Sunucu Ayarları → **Entegrasyonlar → Web Kancaları → Yeni Web Kancası**
+2. Kanal seç → **Web Kancası URL'sini Kopyala**
+3. Sniper menüsünden 5. seçenekle kaydet
 
 ---
 
-## Menu
+## Menü
 
 ```
 ════════════════════════════════
    Discord Vanity Sniper
 ════════════════════════════════
- 1 › Set / change token
- 2 › List all vanity URLs
- 3 › Snipe single URL
- 4 › AUTO-SCAN (watch all URLs)
- 5 › Set webhook
- 6 › Clear TOTP secret
- 7 › Exit
+ 1 › Token gir / değiştir
+ 2 › Tüm vanity URL'leri listele
+ 3 › Tek URL snipe
+ 4 › AUTO-SCAN (tüm urleri izle)
+ 5 › Webhook ayarla
+ 6 › TOTP secret temizle
+ 7 › Çıkış
 ```
 
-| Option | What it does |
+| Seçenek | Ne Yapar |
 |---|---|
-| 1 | Enter or update your Discord user token (saved to `.state.json`) |
-| 2 | Lists every guild on your account with its current vanity URL and admin status |
-| 3 | Snipe a single specific vanity URL — enter the code and pick a destination server |
-| 4 | AUTO-SCAN: connects Gateway, monitors all vanities simultaneously, claims first drop |
-| 5 | Set a Discord webhook URL for `@everyone` notification on successful claim |
-| 6 | Clear saved TOTP secret (useful if you need to re-enter it after 2FA reset) |
-| 7 | Exit |
+| 1 | Token gir veya güncelle |
+| 2 | Hesabındaki tüm sunucuları ve URL'lerini listeler |
+| 3 | Tek bir URL'yi izler, düşünce belirttiğin sunucuya alır |
+| 4 | Tüm URL'leri aynı anda izler, ilk düşeni alır ve durur |
+| 5 | Webhook URL'si kaydet — URL alınınca @everyone atar |
+| 6 | TOTP secret'ı sil (2FA sıfırladıysan kullan) |
+| 7 | Kapat |
 
 ---
 
-## 7/24 Watchdog
+## 7/24 Çalıştırma (Watchdog)
 
-`watchdog.bat` runs `node sniper.js auto` in an infinite loop:
+`watchdog.bat` dosyasına çift tıkla. Sniper otomatik başlar, herhangi bir sebepten kapanırsa 5 saniye sonra kendiliğinden yeniden açılır.
 
 ```
-node sniper.js auto  ← exits for any reason
-        ↓ 5 second delay
-node sniper.js auto  ← restarts automatically
-        ↓
-     ... forever
+Sniper çalışıyor...
+  ↓ crash / kapanma
+5 saniye bekle
+  ↓
+Sniper tekrar başlıyor...
+  ↓
+... sonsuza kadar
 ```
 
-- Restart events are logged to `logs\restarts.log` with timestamp and exit code
-- `auto` mode skips the menu entirely — reads credentials from `.state.json` and immediately starts AUTO-SCAN
-- To stop: close the window or press `Ctrl+C`
+- Yeniden başlamalar `logs\restarts.log` dosyasına kaydedilir
+- Durdurmak için pencereyi kapat veya `Ctrl+C`
 
 ---
 
-## How It Works
+## Nasıl Çalışır?
 
-### Complete Claim Flow
+### Neden Anlık? (Gateway)
 
-```
-1. STARTUP
-   ├── Load .state.json (token, totpSecret, serverId, webhookUrl)
-   ├── Verify token → GET /users/@me
-   ├── Fetch all guilds → GET /users/@me/guilds
-   ├── For each guild: GET /guilds/{id}/vanity-url  (concurrent)
-   └── Build watchlist: { code → guildId } for every active vanity
+Çoğu sniper her birkaç saniyede bir Discord'a "URL hâlâ var mı?" diye sorar. Bu yavaştır ve rate limit yer.
 
-2. MFA PRE-FETCH (ready to claim instantly when drop happens)
-   ├── POST /users/@me/mfa/totp/disable  { code: totp() }
-   │     → response contains mfa.ticket
-   ├── POST /mfa/finish  { ticket, mfa_type: "totp", data: totp() }
-   │     → returns { token: "<mfa_token>" }
-   └── mfa_token saved, refreshed every 2 minutes automatically
+Bu araç Discord'un **Gateway WebSocket**'ine bağlanır — sunucu sahibi URL'yi sildiği **aynı milisaniyede** event alır. Polling yok, gecikme yok.
 
-3. REAL-TIME MONITORING (Gateway WebSocket)
-   ├── Connect wss://gateway.discord.gg/?v=10&encoding=json
-   ├── Receive opcode 10 HELLO → start heartbeat at given interval
-   ├── Send opcode 2 IDENTIFY  { token, intents: 0 }
-   ├── Receive opcode 0 READY  → session established
-   └── Listen for:
-         GUILD_UPDATE   → check if vanity_url_code changed or is now null
-         GUILD_DELETE   → vanity freed when server is deleted
+### MFA Sistemi
 
-4. DROP DETECTED
-   ├── code = dropped vanity URL
-   ├── Acquire claim lock (prevents double-claim in auto mode)
-   └── PATCH /guilds/{targetServerId}/vanity-url
-         { "code": code }
-         Headers: { Authorization: token, X-Discord-MFA-Authorization: mfa_token }
+Discord, URL değiştirmek için **2FA doğrulaması** ister. Araç bunu otomatik halleder:
 
-5. RESPONSE HANDLING
-   ├── 200 → CLAIMED ✓
-   │     ├── Send webhook @everyone notification
-   │     ├── Close all Gateway connections
-   │     └── Exit (watchdog restarts; next run idles — URL is now yours)
-   ├── 429 → rate limited → retry after Retry-After ms
-   ├── 60003 → MFA required → re-fetch MFA token → retry
-   └── other 4xx → log and abort
-```
+1. TOTP kodu üretir (Google Authenticator ile aynı algoritma)
+2. MFA token alır
+3. URL claim ederken bu token'ı kullanır
+4. Token **her 2 dakikada bir otomatik yenilenir** — 7/24 beklerken hiçbir zaman expire olmaz
 
-### Why HTTP/2 Instead of fetch()
+### HTTP/2 (Cloudflare Bypass)
 
-Node.js's built-in `fetch()` (via undici) uses a TLS fingerprint that Cloudflare recognizes as an automated client and returns **error 1015** on sensitive Discord endpoints like `/guilds/*/vanity-url`.
-
-The sniper uses `node:http2` directly with raw header ordering that matches a real browser session — Cloudflare passes it through.
-
-### Why Gateway Instead of Polling
-
-Polling `GET /invites/{code}` every N seconds introduces N seconds of delay, burns rate limit budget, and scales poorly with many guilds.
-
-The Gateway receives `GUILD_UPDATE` events **instantly** — same millisecond the server owner removes the vanity URL.
-
-### TOTP Rotation
-
-TOTP codes rotate every 30 seconds. The sniper:
-1. Generates a fresh code on every call using `Date.now()` — never caches a code
-2. Also tries the **previous** window's code as fallback, so a code that just rotated never causes a failed claim
-3. MFA token (returned by Discord) is valid ~5 minutes — the 2-minute refresh means there is always ≥3 minutes remaining when a drop fires
-
-### MFA Ticket Sources
-
-Obtaining an MFA ticket directly on the vanity URL endpoint triggers Cloudflare 1015. The sniper uses alternative endpoints instead:
-
-```
-Priority 1: POST /users/@me/mfa/totp/disable
-Priority 2: PATCH /users/@me
-Priority 3: POST /users/@me/mfa/sms/enable
-```
-
-Each returns `mfa.ticket` in its 60003 error response which is then passed to `/mfa/finish`.
+Node.js'in varsayılan `fetch()` fonksiyonu Cloudflare tarafından bot olarak algılanır ve **1015 hatası** döndürür. Araç bunun yerine `node:http2` modülünü doğrudan kullanır — gerçek bir tarayıcı gibi görünür.
 
 ---
 
-## Project Structure
+## Sorun Giderme
+
+| Hata | Neden | Çözüm |
+|---|---|---|
+| `Token geçersiz` | Token süresi dolmuş | Tarayıcı DevTools'dan tekrar kopyala |
+| `MFA hatası` | TOTP secret yanlış | Menü 6 → temizle → tekrar gir |
+| `1015 Cloudflare` | IP rate limit | 1 dakika bekle, otomatik düzelir |
+| `Gateway bağlantı hatası` | Internet kesildi | Watchdog otomatik yeniden başlatır |
+| `Vanity URL yok` | Sunucu Seviye 3 değil | Normal — listede `-` olarak görünür |
+
+---
+
+## Dosya Yapısı
 
 ```
 discord-vanity-sniper-mfa-fix/
-├── sniper.js              # entire CLI — Gateway, HTTP/2, TOTP, MFA, menu
-├── watchdog.bat           # 7/24 infinite restart loop
-├── start.bat              # simple interactive launcher
-├── package.json           # { "type": "module" }
-├── .gitignore             # excludes .state.json and logs/
-├── .state.json.example    # credential template — copy to .state.json
+├── sniper.js              # Ana program — tüm mantık burada
+├── watchdog.bat           # 7/24 otomatik yeniden başlatma
+├── start.bat              # Basit başlatıcı (çift tıkla)
+├── package.json
+├── .gitignore             # .state.json ve logs/ hariç tutulur
+├── .state.json.example    # Credential şablonu
 └── README.md
 ```
 
 ---
 
-## Troubleshooting
+## Güvenlik
 
-| Error | Cause | Fix |
-|---|---|---|
-| `Token invalid` | Expired or wrong token | Re-copy the `Authorization` header from browser DevTools |
-| `60003 MFA required` | MFA token expired mid-claim | Auto-refresh recovers on next attempt; if persistent, clear TOTP (option 6) and re-enter |
-| `1015 Cloudflare` | IP rate limited | Wait ~1 minute; sniper retries automatically |
-| `TOTP invalid` | Wrong base32 secret | Option 6 → clear → re-enter. Remove ALL spaces from the key. |
-| `Gateway connection error` | Network drop | Watchdog restarts automatically |
-| `No vanity URL` | Server not Level 3 boosted | Expected — shows as `-` in the list |
+- `.state.json` → `.gitignore`'da — asla commit'e girmez
+- Token'ını kimseyle paylaşma
+- Sürekli açık bırakmak için kişisel bilgisayar yerine **VPS kullanmak** daha güvenli
 
 ---
 
-## Security Notes
+## Sorumluluk Reddi
 
-- `.state.json` is in `.gitignore` — it will never be committed accidentally
-- Never share your Discord user token — it grants full account access
-- Running the watchdog on a VPS is safer than a personal machine (always-on, no open Discord sessions)
+Bu araç Discord Kullanım Şartları'nı ihlal eder. Kullanım sorumluluğu tamamen size aittir. Hesap askıya alma veya kalıcı ban durumlarında geliştirici sorumlu tutulamaz.
 
 ---
 
-## Disclaimer
-
-Automating a Discord user account violates Discord's Terms of Service. Use at your own risk. The author takes no responsibility for account suspensions or bans.
-
----
-
-## License
+## Lisans
 
 MIT
