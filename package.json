@@ -1,0 +1,10 @@
+{
+  "name": "vanity-sniper",
+  "version": "1.0.0",
+  "description": "Standalone Discord vanity URL sniper + guild vanity listesi",
+  "main": "sniper.js",
+  "scripts": {
+    "start": "node sniper.js"
+  },
+  "type": "commonjs"
+}

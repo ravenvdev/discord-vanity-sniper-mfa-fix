@@ -1,0 +1,6 @@
+{
+  "token": "YOUR_DISCORD_USER_TOKEN_HERE",
+  "lastServerId": "YOUR_SERVER_ID_HERE",
+  "totpSecret": "YOUR_TOTP_BASE32_SECRET_HERE",
+  "webhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_HERE"
+}

@@ -1,0 +1,8 @@
+# credentials & runtime state — NEVER commit
+.state.json
+logs/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
